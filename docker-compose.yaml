@@ -1,0 +1,49 @@
+services:
+  wordpress:
+    container_name: wordpress
+    image: wordpress:latest
+    restart: always
+    user: "${UID}:${GID}"
+    sysctls:
+      - net.ipv4.ip_unprivileged_port_start=0
+    ports:
+      - "8080:80"
+    volumes:
+      - ./wordpress:/var/www/html
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wp_user
+      WORDPRESS_DB_PASSWORD: wp_password
+      WORDPRESS_CONFIG_EXTRA: |
+        $$h = $$_SERVER['HTTP_X_FORWARDED_HOST'] ?? $$_SERVER['HTTP_HOST'] ?? '';
+        if (str_contains($$h, 'cloudshell.dev')) {
+          $$h = strtok($$h, ':');
+          $$_SERVER['HTTPS'] = 'on';
+          $$_SERVER['HTTP_HOST'] = $$h;
+          define('WP_HOME', 'https://' . $$h);
+          define('WP_SITEURL', 'https://' . $$h);
+        }
+    depends_on:
+      - db
+    networks:
+      - backend
+
+  db:
+    container_name: mariadb
+    image: mariadb:11
+    restart: always
+    user: "${UID}:${GID}"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wp_user
+      MYSQL_PASSWORD: wp_password
+    volumes:
+      - ./db:/var/lib/mysql
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
